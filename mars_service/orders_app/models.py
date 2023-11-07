@@ -1,80 +1,81 @@
-from datetime import datetime
 from django.db import models
-from django.core.exceptions import ValidationError
+from datetime import datetime
+
 
 
 class Device(models.Model):
-    '''Модели оборудования'''
-   
-    manufacturer = models.CharField(max_length=50, verbose_name='Производитель')
-    model = models.CharField(max_length=50, verbose_name='Модель')
-    
-    
+    """Оборудование"""
+
     class Meta:
-        db_table = 'devices'
-        verbose_name = 'Доступное оборудование'
-        verbose_name_plural = 'Доступное оборудование'        
-        
+        db_table = "devices"
+        verbose_name = "Доступное оборудование"
+        verbose_name_plural = "Доступное оборудование"
+
+    manufacturer = models.TextField(verbose_name="Производитель")
+    model = models.TextField(verbose_name="Модель")
+
     def __str__(self):
-        return f'{self.manufacturer} {self.model}'
+        return f"{self.manufacturer} {self.model}"
 
 
 class Customer(models.Model):
-    '''Конечные пользователи оборудования'''
-    
-    customer_name = models.CharField(max_length=50, verbose_name='Наименование организации')
-    customer_address = models.CharField(max_length=50, verbose_name='Адрес')
-    customer_cuty = models.CharField(max_length=50, verbose_name='Город')
-    
+    """Конечные пользователи оборудования"""
+
     class Meta:
-        db_table = 'customers'
-        verbose_name = 'Описание контрагента'
-        verbose_name_plural = 'Описание контрагентов'
-    
+        db_table = "customers"
+        verbose_name = "Описание контрагента"
+        verbose_name_plural = "Описание контрагентов"
+
+    # todo luchanos идея для адреса - разбить его на блоки "город", "улица", "дом", "корпус" и т.д.
+    customer_name = models.TextField(verbose_name="Наименование организации")
+    customer_address = models.TextField(verbose_name="Адрес")
+    customer_city = models.TextField(verbose_name="Город")
+
     def __str__(self):
-        return f'{self.customer_name}'
-    
+        return f"{self.customer_name} по адресу: {self.customer_address}"
+
 
 class DeviceInField(models.Model):
-    '''Модель оборудования в полях'''
-    
-    serial_number = models.CharField(max_length=50, verbose_name='Серийный номер')
-    customer_id = models.ForeignKey(Customer, on_delete=models.RESTRICT, verbose_name='Идентификатор контрагента')
-    analyzer_id = models.ForeignKey(Device, on_delete=models.RESTRICT, verbose_name='Идентификатор оборудования')
-    owner_status = models.CharField(max_length=50, verbose_name='Статус принедлежности')
-    
-    class Meta:
-        db_table = 'devices_in_field'
-        verbose_name = 'Оборудование в полях'
-        verbose_name_plural = 'Оборудование в полях'
-        
-    def __str__(self):
-        return f'{self.serial_number} {self.analyzer_id}'
-    
+    """Оборудование в полях"""
 
-def status_validator(order_status):
-    if order_status not in ['open', 'closed', 'in_progress', 'need_info']:
-        raise ValidationError('Неверный статус заказа')
-    
+    class Meta:
+        db_table = "devices_in_fields"
+        verbose_name = "Оборудование в полях"
+        verbose_name_plural = "Оборудование в полях"
+
+    serial_number = models.TextField(verbose_name="Серийный номер")
+    customer = models.ForeignKey(Customer, on_delete=models.RESTRICT, verbose_name="Пользователь")
+    analyzer = models.ForeignKey(Device, on_delete=models.RESTRICT, verbose_name="Оборудование")
+    owner_status = models.TextField(verbose_name="Статус принадлежности")
+
+    def __str__(self):
+        return f"{self.analyzer} с/н {self.serial_number} в {self.customer}"
+
 
 class Order(models.Model):
-    '''Класс для описания заявки'''
-    
-    device = models.ForeignKey(DeviceInField, on_delete=models.RESTRICT, verbose_name='Оборудование')
-    customer = models.ForeignKey(Customer, on_delete=models.RESTRICT, verbose_name='Конечный пользователь')
-    order_description = models.TextField(verbose_name='Описание заявки')
-    created = models.DateTimeField(auto_now_add=True, verbose_name='Дата создания')
-    last_update = models.DateTimeField(auto_now=True, blank=True, null=True, verbose_name='Дата последнего обновления')
-    order_status = models.CharField(max_length=50, verbose_name='Статус заявки', validators=[status_validator])
-    
+    """Класс для описания заявки"""
+
     class Meta:
-        db_table = 'orders'
-        verbose_name = 'Заявка'
-        verbose_name_plural = 'Заявки'
-        
-    def save(self, *args, **kwargs):
-        self.last_update = datetime.now()
-        super().save(*args, **kwargs)
-                                
+        db_table = "orders"
+        verbose_name = "Заявка"
+        verbose_name_plural = "Заявки"
+
+    statuses = (("open", "открыта"),
+                ("closed", "закрыта"),
+                ("in progress", "в работе"),
+                ("need info", "нужна информация"))
+
+    # todo luchanos надо подумать над процессом движения прибора от клиента к клиенту, чтобы заявки не пропадали
+    # todo luchanos спросить у Гриши нужно ли поле для фиксации корректирующих действий? (Скорее всего да)
+    device = models.ForeignKey(DeviceInField, verbose_name="Оборудование", on_delete=models.RESTRICT)
+    order_description = models.TextField(verbose_name="Описание")
+    created_dt = models.DateTimeField(verbose_name="Создано", auto_now_add=True)
+    last_updated_dt = models.DateTimeField(verbose_name="Последнее изменение", blank=True, null=True)
+    order_status = models.TextField(verbose_name="Статус заявки", choices=statuses)
+
     def __str__(self):
-        return f'{self.device} {self.customer} {self.order_status}'
+        return f"Заявка №{self.id} для {self.device}"
+
+    def save(self, *args, **kwargs):
+        self.last_updated_dt = datetime.now()
+        super().save(*args, **kwargs)
