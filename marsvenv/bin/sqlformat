@@ -1,4 +1,4 @@
-#!/Users/ppvvlb/Desktop/Vsprojects/petprojects/mars/marsvenv/bin/python3
+#!/Users/ppvvlb/Desktop/mars/marsvenv/bin/python
 # -*- coding: utf-8 -*-
 import re
 import sys
